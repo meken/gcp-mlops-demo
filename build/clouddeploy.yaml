@@ -1,0 +1,77 @@
+steps:
+  - id: 'Check if variables are set'
+    name: bash
+    env:
+      - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
+      - 'ENDPOINT=$_ENDPOINT'
+      - 'LOCATION=$_LOCATION'
+    script: |
+      if [[ -z "$PYTHON_PKG" ]] || [[ -z "$ENDPOINT" ]] || [[ -z "$LOCATION" ]]; then
+        echo "Set PYTHON_PKG, ENDPOINT and LOCATION please"
+        exit 1
+      fi
+
+  - id: 'Download the package from Cloud Storage'
+    name: gcr.io/cloud-builders/gsutil
+    env:
+      - 'PROJECT_ID=$PROJECT_ID'
+    args:
+      - cp 
+      - gs://$PROJECT_ID/code/$_PYTHON_PKG.tar.gz
+      - '.'
+
+  - id: 'Create a virtual env'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c 
+      - python -m venv .venv
+
+  - id: 'Install the dependencies'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && pip install $_PYTHON_PKG.tar.gz[gcp]
+
+
+  - id: 'Generate the pipeline definition'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && python -m trainer.pipeline --pipeline-file-name=pipeline.json
+  
+  - id: 'Generate the run script'
+    name: bash
+    env:
+      - 'PROJECT_ID=$PROJECT_ID'
+      - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
+      - 'ENDPOINT=$_ENDPOINT'
+      - 'LOCATION=$_LOCATION'
+    script: |
+      cat <<EOF > submit.py
+      from google.cloud import aiplatform
+      job = aiplatform.PipelineJob(
+          display_name="taxi-tips-training",
+          template_path="pipeline.json",
+          pipeline_root="gs://$PROJECT_ID/pipelines",
+          project="$PROJECT_ID",
+          location="$LOCATION",
+          parameter_values={
+              "project_id": "$PROJECT_ID",
+              "location": "$LOCATION",
+              "python_pkg": "$PYTHON_PKG",
+              "endpoint": "$ENDPOINT"
+          },
+          enable_caching=False
+      )
+      job.submit()
+      EOF
+
+  - id: 'Run the pipeline'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && python submit.py

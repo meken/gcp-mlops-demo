@@ -1,0 +1,66 @@
+steps:
+  - id: 'Clone the repository'
+    name: gcr.io/cloud-builders/git
+    entrypoint: git
+    args: ['clone', '--depth', '1', '--branch', '$BRANCH_NAME', 
+          'https://source.developers.google.com/p/$PROJECT_ID/r/$REPO_NAME']
+
+  - id: 'Create a virtual env'
+    name: python:3.7-slim
+    dir: $REPO_NAME
+    entrypoint: bash
+    args: 
+      - -c 
+      - python -m venv .venv
+
+  - id: 'Install the dependencies'
+    name: python:3.7-slim
+    dir: $REPO_NAME
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && pip install .[dev]
+
+  - id: 'Lint the source code'
+    name: python:3.7-slim
+    dir: $REPO_NAME
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && flake8
+
+  - id: 'Run the unittests and measure coverage'
+    name: python:3.7-slim
+    dir: $REPO_NAME
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && coverage run --source=src -m pytest -v tests/unittests
+
+  - id: 'Report the coverage'
+    name: python:3.7-slim
+    dir: $REPO_NAME
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && coverage report
+
+  - id: 'Create the Python package'
+    name: python:3.7-slim
+    dir: $REPO_NAME
+    entrypoint: bash
+    args: 
+      - -c
+      - python setup.py sdist --formats=gztar
+
+  - id: 'Copy the package to Cloud Store'
+    name: gcr.io/cloud-builders/gsutil
+    dir: $REPO_NAME
+    env:
+      - 'PROJECT_ID=$PROJECT_ID'
+    args:
+      - cp 
+      - dist/*.tar.gz
+      - gs://$PROJECT_ID/code/
+    
+
