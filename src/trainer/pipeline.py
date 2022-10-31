@@ -193,7 +193,7 @@ def model_deployment_op(model_name: str, endpoint_name: str, project_id: str, lo
 
 
 @dsl.pipeline(name="taxi-tips-training")
-def training_pipeline(project_id: str, location: str, python_pkg: str, endpoint: str = ""):
+def training_pipeline(project_id: str, location: str, python_pkg: str, endpoint: str = "[none]"):
     model_name = "taxi-tips"
 
     data_extraction_task = data_extract_op(
@@ -242,7 +242,7 @@ def training_pipeline(project_id: str, location: str, python_pkg: str, endpoint:
             location=location
         ).set_display_name("register-model-evaluation")
 
-        with dsl.Condition(endpoint != "", name="check-if-endpoint-set"):
+        with dsl.Condition(endpoint != "[none]", name="check-if-endpoint-set"):
             model_deployment_task = model_deployment_op(
                 model_name=model_name,
                 endpoint_name=endpoint,
