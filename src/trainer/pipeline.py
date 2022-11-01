@@ -69,9 +69,10 @@ def model_training_op(
 
     aiplatform.init(project=project_id, location=location, staging_bucket=f"gs://{project_id}/staging")
 
+    pkg_with_uri = python_pkg if python_pkg.startswith("gs://") else f"gs://{project_id}/code/{python_pkg}"
     job = aiplatform.CustomPythonPackageTrainingJob(
         display_name="taxi-tips-custom-job",
-        python_package_gcs_uri=python_pkg if python_pkg.startswith("gs://") else f"gs://{project_id}/code/{python_pkg}",
+        python_package_gcs_uri=pkg_with_uri if pkg_with_uri.endswith(".tar.gz") else f"{pkg_with_uri}.tar.gz",
         python_module_name="trainer.task",
         container_uri="europe-docker.pkg.dev/vertex-ai/training/scikit-learn-cpu.0-23:latest")
 
