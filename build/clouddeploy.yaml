@@ -62,7 +62,8 @@ steps:
               "project_id": "$PROJECT_ID",
               "location": "$LOCATION",
               "python_pkg": "$PYTHON_PKG",
-              "endpoint": "$ENDPOINT"
+              "endpoint": "$ENDPOINT",
+              "monitoring_job": "$ENDPOINT-monitoring"
           },
           enable_caching=False
       )

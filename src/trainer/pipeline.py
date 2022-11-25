@@ -193,8 +193,62 @@ def model_deployment_op(model_name: str, endpoint_name: str, project_id: str, lo
             max_replica_count=4)
 
 
+@dsl.component(packages_to_install=["google-cloud-aiplatform", "pandas"])
+def model_monitoring_op(
+        dataset: dsl.Input[dsl.Dataset],
+        monitoring_job_name: str,
+        endpoint_name: str,
+        project_id: str,
+        location: str):
+    import pandas as pd
+
+    from google.cloud import aiplatform
+    from google.cloud.aiplatform import model_monitoring
+
+    aiplatform.init(project=project_id, location=location)
+
+    random_sampling = model_monitoring.RandomSampleConfig(sample_rate=0.1)  # sample 10%
+    schedule_config = model_monitoring.ScheduleConfig(monitor_interval=1)  # every hour
+    sample_file = f"{dataset.path}/test/000000000000.csv"
+    # assuming filename, column order (expecting target to be the last column)
+    cols = pd.read_csv(sample_file, nrows=0).columns.to_list()[:-1]
+    skew_config = model_monitoring.SkewDetectionConfig(
+        data_source=sample_file.replace("/gcs/", "gs://", 1),
+        data_format="csv",
+        skew_thresholds={col: 0.3 for col in cols},
+        target_field="tip_bin"
+    )
+    objective_config = model_monitoring.ObjectiveConfig(
+        skew_config
+    )
+    emails = []
+    alerting_config = model_monitoring.EmailAlertConfig(
+        user_emails=emails, enable_logging=True
+    )
+
+    endpoints = aiplatform.Endpoint.list(filter=f"display_name={endpoint_name}")
+    if len(endpoints) > 0:
+        monitoring_job_resource_name = endpoints[0].gca_resource.model_deployment_monitoring_job
+        if (monitoring_job_resource_name):
+            # can't update an existing monitoring job if it's pending so deleting it first
+            job = aiplatform.ModelDeploymentMonitoringJob(monitoring_job_resource_name)
+            job.delete()
+
+        aiplatform.ModelDeploymentMonitoringJob.create(
+            display_name=monitoring_job_name,
+            endpoint=endpoints[0].resource_name,
+            logging_sampling_strategy=random_sampling,
+            schedule_config=schedule_config,
+            alert_config=alerting_config,
+            objective_configs=objective_config,
+            project=project_id,
+            location=location
+        )
+
+
 @dsl.pipeline(name="taxi-tips-training")
-def training_pipeline(project_id: str, location: str, python_pkg: str, endpoint: str = "[none]"):
+def training_pipeline(
+        project_id: str, location: str, python_pkg: str, endpoint: str = "[none]", monitoring_job: str = "[none]"):
     model_name = "taxi-tips"
 
     data_extraction_task = data_extract_op(
@@ -251,6 +305,16 @@ def training_pipeline(project_id: str, location: str, python_pkg: str, endpoint:
                 location=location
             ).set_display_name("deploy-model")
             model_deployment_task.after(model_evaluation_upload_task)
+
+            with dsl.Condition(monitoring_job != "[none]", name="check-if-monitoring-enabled"):
+                model_monitoring_task = model_monitoring_op(
+                    dataset=data_extraction_task.outputs["dataset"],
+                    endpoint_name=endpoint,
+                    monitoring_job_name=monitoring_job,
+                    project_id=project_id,
+                    location=location
+                ).set_display_name("monitor-model")
+                model_monitoring_task.after(model_deployment_task)
 
 
 def compile(filename: str):
