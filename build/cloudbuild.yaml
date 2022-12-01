@@ -19,7 +19,7 @@ steps:
     entrypoint: bash
     args: 
       - -c
-      - source .venv/bin/activate && pip install .[dev]
+      - source .venv/bin/activate && pip install -c constraints.txt .[dev]
 
   - id: 'Lint the source code'
     name: python:3.7-slim
