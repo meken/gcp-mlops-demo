@@ -1,0 +1,87 @@
+steps:
+  - id: 'Check if variables are set'
+    name: bash
+    env:
+      - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
+      - 'MODEL_NAME=$_MODEL_NAME'
+      - 'SOURCE_TABLE_ID=$_SOURCE_TABLE_ID'
+      - 'TRAINING_SAMPLE_URI="$_TRAINING_SAMPLE_URI'
+      - 'LOCATION=$_LOCATION'
+    script: |
+      if [[ -z "$PYTHON_PKG" ]] ||
+         [[ -z "$MODEL_NAME" ]] ||
+         [[ -z "$SOURCE_TABLE_ID" ]] ||
+         [[ -z "$TRAINING_SAMPLE_URI" ]] ||
+         [[ -z "$LOCATION" ]]; then
+        echo "Set PYTHON_PKG, MODEL_NAME, SOURCE_TABLE_ID, TRAINING_SAMPLE_URI and LOCATION please"
+        exit 1
+      fi
+
+  - id: 'Download the package from Cloud Storage'
+    name: gcr.io/cloud-builders/gsutil
+    env:
+      - 'PROJECT_ID=$PROJECT_ID'
+    args:
+      - cp 
+      - gs://$PROJECT_ID/code/$_PYTHON_PKG.tar.gz
+      - '.'
+
+  - id: 'Create a virtual env'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c 
+      - python -m venv .venv
+
+  - id: 'Install the dependencies'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && pip install $_PYTHON_PKG.tar.gz[gcp]
+
+
+  - id: 'Generate the pipeline definition'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && python -m trainer.batch --pipeline-file-name=pipeline.json
+  
+  - id: 'Generate the run script'
+    name: bash
+    env:
+      - 'PROJECT_ID=$PROJECT_ID'
+      - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
+      - 'MODEL_NAME=$_MODEL_NAME'
+      - 'SOURCE_TABLE_ID=$_SOURCE_TABLE_ID'
+      - 'TRAINING_SAMPLE_URI=$_TRAINING_SAMPLE_URI'
+      - 'LOCATION=$_LOCATION'
+    script: |
+      cat <<EOF > submit.py
+      from google.cloud import aiplatform
+      job = aiplatform.PipelineJob(
+          display_name="taxi-tips-batch-prediction",
+          template_path="pipeline.json",
+          pipeline_root="gs://$PROJECT_ID/pipelines",
+          project="$PROJECT_ID",
+          location="$LOCATION",
+          parameter_values={
+              "project_id": "$PROJECT_ID",
+              "location": "$LOCATION",
+              "model_name": "$MODEL_NAME",
+              "source_table_id": "$SOURCE_TABLE_ID",
+              "monitoring": "True",
+              "training_sample_uri": "$TRAINING_SAMPLE_URI"
+          },
+          enable_caching=False
+      )
+      job.submit()
+      EOF
+
+  - id: 'Run the pipeline'
+    name: python:3.7-slim
+    entrypoint: bash
+    args: 
+      - -c
+      - source .venv/bin/activate && python submit.py
