@@ -4,16 +4,16 @@ steps:
     env:
       - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
       - 'MODEL_NAME=$_MODEL_NAME'
-      - 'SOURCE_TABLE_ID=$_SOURCE_TABLE_ID'
+      - 'SOURCE_TABLE_URI=$_SOURCE_TABLE_URI'
       - 'TRAINING_SAMPLE_URI="$_TRAINING_SAMPLE_URI'
       - 'LOCATION=$_LOCATION'
     script: |
       if [[ -z "$PYTHON_PKG" ]] ||
          [[ -z "$MODEL_NAME" ]] ||
-         [[ -z "$SOURCE_TABLE_ID" ]] ||
+         [[ -z "$SOURCE_TABLE_URI" ]] ||
          [[ -z "$TRAINING_SAMPLE_URI" ]] ||
          [[ -z "$LOCATION" ]]; then
-        echo "Set PYTHON_PKG, MODEL_NAME, SOURCE_TABLE_ID, TRAINING_SAMPLE_URI and LOCATION please"
+        echo "Set PYTHON_PKG, MODEL_NAME, SOURCE_TABLE_URI, TRAINING_SAMPLE_URI and LOCATION please"
         exit 1
       fi
 
@@ -54,7 +54,7 @@ steps:
       - 'PROJECT_ID=$PROJECT_ID'
       - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
       - 'MODEL_NAME=$_MODEL_NAME'
-      - 'SOURCE_TABLE_ID=$_SOURCE_TABLE_ID'
+      - 'SOURCE_TABLE_URI=$_SOURCE_TABLE_URI'
       - 'TRAINING_SAMPLE_URI=$_TRAINING_SAMPLE_URI'
       - 'LOCATION=$_LOCATION'
     script: |
@@ -70,8 +70,7 @@ steps:
               "project_id": "$PROJECT_ID",
               "location": "$LOCATION",
               "model_name": "$MODEL_NAME",
-              "source_table_id": "$SOURCE_TABLE_ID",
-              "monitoring": "True",
+              "source_table_uri": "$SOURCE_TABLE_URI",
               "training_sample_uri": "$TRAINING_SAMPLE_URI"
           },
           enable_caching=False

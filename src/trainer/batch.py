@@ -4,9 +4,20 @@ from kfp.v2 import compiler
 from kfp.v2 import dsl
 
 
+@dsl.component()
+def data_preparation_op(src_table: str, prepared_table: dsl.Output[dsl.Artifact]):
+    # this would be the place to do any data preparation, we're just passing the input as output
+    prepared_table.uri = src_table if src_table.startswith("bq://") else f"bq://{src_table}"
+
+
 @dsl.component(packages_to_install=["google-cloud-aiplatform"])
 def batch_prediction_op(
-        model_name: str, input_table: str, monitoring: bool, sample_uri: str, project_id: str, location: str) -> str:
+        model_name: str, input_table: dsl.Input[dsl.Artifact], monitoring_sample_uri: str,
+        project_id: str, location: str, output_table: dsl.Output[dsl.Artifact]) -> str:
+    import re
+
+    from datetime import datetime
+
     from google.cloud import aiplatform
     from google.cloud.aiplatform_v1beta1.services.job_service import JobServiceClient
     from google.cloud.aiplatform_v1beta1.types import (
@@ -15,8 +26,21 @@ def batch_prediction_op(
         ModelMonitoringObjectiveConfig)
 
     aiplatform.init(project=project_id, location=location)
+
     model_monitoring_config = None
-    if monitoring:
+    if monitoring_sample_uri != "[none]":
+        if monitoring_sample_uri.startswith("bq://"):
+            training_dataset = ModelMonitoringObjectiveConfig.TrainingDataset(
+                data_format="bigquery",
+                gcs_source=BigQuerySource(input_uri=[monitoring_sample_uri])
+            )
+        else:
+            if not monitoring_sample_uri.startswith("gs://"):
+                monitoring_sample_uri = f"gs://{monitoring_sample_uri}"
+            training_dataset = ModelMonitoringObjectiveConfig.TrainingDataset(
+                data_format="csv",
+                gcs_source=GcsSource(uris=[monitoring_sample_uri])
+            )
         skew_config = ModelMonitoringObjectiveConfig.TrainingPredictionSkewDetectionConfig()
         model_monitoring_config = ModelMonitoringConfig(
             alert_config=ModelMonitoringAlertConfig(
@@ -27,20 +51,16 @@ def batch_prediction_op(
             ),
             objective_configs=[
                 ModelMonitoringObjectiveConfig(
-                    training_dataset=ModelMonitoringObjectiveConfig.TrainingDataset(
-                        data_format="csv",
-                        gcs_source=GcsSource(uris=[sample_uri]),
-                    ),
+                    training_dataset=training_dataset,
                     training_prediction_skew_detection_config=skew_config
                 )
             ],
         )
 
-    if not input_table.startswith("bq://"):
-        input_table = f"bq://{input_table}"
-
-    table_name_start_idx = input_table.rfind(".")
-    output_dataset = input_table[:table_name_start_idx]
+    table_name_start_idx = input_table.uri.rfind(".")
+    output_dataset = input_table.uri[:table_name_start_idx]
+    output_table_suffix = re.sub("[^a-zA-Z0-9_]+", "_", datetime.now().isoformat())
+    output_table.uri = f"{output_dataset}.predictions_{output_table_suffix}"
 
     matches = aiplatform.Model.list(filter=f"display_name={model_name}")
     model = matches[0].resource_name if matches else None
@@ -49,11 +69,11 @@ def batch_prediction_op(
         display_name=f"{model_name}-prediction-job",
         model=model,
         input_config=BatchPredictionJob.InputConfig(
-            bigquery_source=BigQuerySource(input_uri=input_table),
+            bigquery_source=BigQuerySource(input_uri=input_table.uri),
             instances_format="bigquery"
         ),
         output_config=BatchPredictionJob.OutputConfig(
-            bigquery_destination=BigQueryDestination(output_uri=output_dataset),
+            bigquery_destination=BigQueryDestination(output_uri=output_table.uri),
             predictions_format="bigquery"
         ),
         dedicated_resources=BatchDedicatedResources(
@@ -75,10 +95,12 @@ def batch_prediction_op(
 
 @dsl.pipeline(name="taxi-tips-predictions")
 def batch_pipeline(
-        project_id: str, location: str, model_name: str, source_table_id: str,
-        monitoring: bool = False, training_sample_uri: str = "[none]",):
+        project_id: str, location: str, model_name: str, source_table_uri: str, training_sample_uri: str = "[none]"):
+
+    data_preparation_task = data_preparation_op(src_table=source_table_uri).set_display_name("data-preparation")
+
     batch_prediction_task = batch_prediction_op(
-        model_name, source_table_id, monitoring, training_sample_uri, project_id, location)
+        model_name, data_preparation_task.output, training_sample_uri, project_id, location)
     batch_prediction_task.set_display_name("batch-prediction")
 
 
