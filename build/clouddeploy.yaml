@@ -32,7 +32,7 @@ steps:
     entrypoint: bash
     args: 
       - -c
-      - source .venv/bin/activate && pip install -c constraints.txt $_PYTHON_PKG.tar.gz[gcp]
+      - source .venv/bin/activate && pip install $_PYTHON_PKG.tar.gz[gcp]
 
 
   - id: 'Generate the pipeline definition'
