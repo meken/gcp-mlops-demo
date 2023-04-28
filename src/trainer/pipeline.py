@@ -193,38 +193,21 @@ def model_deployment_op(model_name: str, endpoint_name: str, project_id: str, lo
             max_replica_count=4)
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform", "pandas"])
+@dsl.component(packages_to_install=["google-cloud-aiplatform", "google-cloud-monitoring"])
 def model_monitoring_op(
         dataset: dsl.Input[dsl.Dataset],
         monitoring_job_name: str,
         endpoint_name: str,
         project_id: str,
         location: str):
-    import pandas as pd
 
     from google.cloud import aiplatform
-    from google.cloud.aiplatform import model_monitoring
-
+    from google.cloud import monitoring_v3
+    from google.cloud.aiplatform_v1beta1.services.job_service import JobServiceClient
+    from google.cloud.aiplatform_v1beta1.types import (
+        GcsSource, ModelDeploymentMonitoringJob, ModelDeploymentMonitoringScheduleConfig, ModelMonitoringAlertConfig,
+        ModelMonitoringObjectiveConfig, ModelDeploymentMonitoringObjectiveConfig, SamplingStrategy)
     aiplatform.init(project=project_id, location=location)
-
-    random_sampling = model_monitoring.RandomSampleConfig(sample_rate=0.1)  # sample 10%
-    schedule_config = model_monitoring.ScheduleConfig(monitor_interval=1)  # every hour
-    sample_file = f"{dataset.path}/test/000000000000.csv"
-    # assuming filename, column order (expecting target to be the last column)
-    cols = pd.read_csv(sample_file, nrows=0).columns.to_list()[:-1]
-    skew_config = model_monitoring.SkewDetectionConfig(
-        data_source=sample_file.replace("/gcs/", "gs://", 1),
-        data_format="csv",
-        skew_thresholds={col: 0.3 for col in cols},
-        target_field="tip_bin"
-    )
-    objective_config = model_monitoring.ObjectiveConfig(
-        skew_config
-    )
-    emails = []
-    alerting_config = model_monitoring.EmailAlertConfig(
-        user_emails=emails, enable_logging=True
-    )
 
     endpoints = aiplatform.Endpoint.list(filter=f"display_name={endpoint_name}")
     if len(endpoints) > 0:
@@ -233,16 +216,55 @@ def model_monitoring_op(
             # can't update an existing monitoring job if it's pending so deleting it first
             job = aiplatform.ModelDeploymentMonitoringJob(monitoring_job_resource_name)
             job.delete()
+        
+        monitoring_client = monitoring_v3.NotificationChannelServiceClient()
+        notification_channel_req = monitoring_v3.ListNotificationChannelsRequest(
+            name=f"projects/{project_id}", filter="type='pubsub'")
+        notification_channel_res = monitoring_client.list_notification_channels(notification_channel_req)
+        notification_channel_page = next(notification_channel_res.pages, None)
+        notification_channels = []
+        if notification_channel_page and len(notification_channel_page.notification_channels) > 0:
+            notification_channels = [notification_channel_page.notification_channels[0].name]
 
-        aiplatform.ModelDeploymentMonitoringJob.create(
+        skew_config = ModelMonitoringObjectiveConfig.TrainingPredictionSkewDetectionConfig()
+        objective_config = ModelDeploymentMonitoringObjectiveConfig(
+            deployed_model_id=endpoints[0].gca_resource.deployed_models[0].id,
+            objective_config=ModelMonitoringObjectiveConfig(
+                training_dataset=ModelMonitoringObjectiveConfig.TrainingDataset(
+                    gcs_source=GcsSource(uris=[f"{dataset.path}/test/000000000000.csv".replace("/gcs/", "gs://", 1)]),
+                    data_format="csv",
+                    target_field="tip_bin"
+                ),
+                training_prediction_skew_detection_config=skew_config
+            )
+        )
+        schedule_config = ModelDeploymentMonitoringScheduleConfig(
+            monitor_interval={"seconds": 3600},
+        )
+        logging_strategy = SamplingStrategy(
+            random_sample_config = SamplingStrategy.RandomSampleConfig(sample_rate=0.1)
+        )
+        alert_config = ModelMonitoringAlertConfig(
+            enable_logging=True,
+            notification_channels=notification_channels,
+            email_alert_config=ModelMonitoringAlertConfig.EmailAlertConfig(
+                user_emails=[]
+            )
+        )
+
+        model_deployment_monitoring_job = ModelDeploymentMonitoringJob(
             display_name=monitoring_job_name,
             endpoint=endpoints[0].resource_name,
-            logging_sampling_strategy=random_sampling,
-            schedule_config=schedule_config,
-            alert_config=alerting_config,
-            objective_configs=objective_config,
-            project=project_id,
-            location=location
+            model_deployment_monitoring_objective_configs=[objective_config],
+            model_deployment_monitoring_schedule_config=schedule_config,
+            logging_sampling_strategy=logging_strategy,
+            model_monitoring_alert_config=alert_config
+        )
+
+        client = JobServiceClient(client_options={"api_endpoint": f"{location}-aiplatform.googleapis.com"})
+        client.create_model_deployment_monitoring_job(
+            parent=f"projects/{project_id}/locations/{location}", 
+            model_deployment_monitoring_job=model_deployment_monitoring_job
         )
 
 

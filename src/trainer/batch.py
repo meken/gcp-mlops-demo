@@ -10,7 +10,7 @@ def data_preparation_op(src_table: str, prepared_table: dsl.Output[dsl.Artifact]
     prepared_table.uri = src_table if src_table.startswith("bq://") else f"bq://{src_table}"
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform"])
+@dsl.component(packages_to_install=["google-cloud-aiplatform", "google-cloud-monitoring"])
 def batch_prediction_op(
         model_name: str, input_table: dsl.Input[dsl.Artifact], monitoring_sample_uri: str,
         project_id: str, location: str, output_table: dsl.Output[dsl.Artifact]) -> str:
@@ -19,6 +19,7 @@ def batch_prediction_op(
     from datetime import datetime
 
     from google.cloud import aiplatform
+    from google.cloud import monitoring_v3
     from google.cloud.aiplatform_v1beta1.services.job_service import JobServiceClient
     from google.cloud.aiplatform_v1beta1.types import (
         BatchDedicatedResources, BatchPredictionJob, BigQueryDestination, BigQuerySource,
@@ -29,6 +30,15 @@ def batch_prediction_op(
 
     model_monitoring_config = None
     if monitoring_sample_uri != "[none]":
+        monitoring_client = monitoring_v3.NotificationChannelServiceClient()
+        notification_channel_req = monitoring_v3.ListNotificationChannelsRequest(
+            name=f"projects/{project_id}", filter="type='pubsub'")
+        notification_channel_res = monitoring_client.list_notification_channels(notification_channel_req)
+        notification_channel_page = next(notification_channel_res.pages, None)
+        notification_channels = []
+        if notification_channel_page and len(notification_channel_page.notification_channels) > 0:
+            notification_channels = [notification_channel_page.notification_channels[0].name]
+
         if monitoring_sample_uri.startswith("bq://"):
             training_dataset = ModelMonitoringObjectiveConfig.TrainingDataset(
                 data_format="bigquery",
@@ -45,6 +55,7 @@ def batch_prediction_op(
         model_monitoring_config = ModelMonitoringConfig(
             alert_config=ModelMonitoringAlertConfig(
                 enable_logging=True,
+                notification_chanels=notification_channels,
                 email_alert_config=ModelMonitoringAlertConfig.EmailAlertConfig(
                     user_emails=[]
                 )
