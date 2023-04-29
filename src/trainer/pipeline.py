@@ -5,7 +5,7 @@ from kfp.v2 import dsl
 
 
 @dsl.component(packages_to_install=["google-cloud-bigquery"])
-def data_extract_op(project_id: str, location: str, dataset: dsl.Output[dsl.Dataset]):
+def data_extract_op(project_id: str, dataset: dsl.Output[dsl.Dataset]):
     import os
 
     from google.cloud import bigquery
@@ -274,7 +274,7 @@ def training_pipeline(
     model_name = "taxi-tips"
 
     data_extraction_task = data_extract_op(
-        project_id=project_id, location=location
+        project_id=project_id
     ).set_display_name("extract-data")
 
     data_validation_task = data_validation_op(
