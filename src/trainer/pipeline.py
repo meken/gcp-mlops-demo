@@ -216,7 +216,7 @@ def model_monitoring_op(
             # can't update an existing monitoring job if it's pending so deleting it first
             job = aiplatform.ModelDeploymentMonitoringJob(monitoring_job_resource_name)
             job.delete()
-        
+
         monitoring_client = monitoring_v3.NotificationChannelServiceClient()
         notification_channel_req = monitoring_v3.ListNotificationChannelsRequest(
             name=f"projects/{project_id}", filter="type='pubsub'")
@@ -242,7 +242,7 @@ def model_monitoring_op(
             monitor_interval={"seconds": 3600},
         )
         logging_strategy = SamplingStrategy(
-            random_sample_config = SamplingStrategy.RandomSampleConfig(sample_rate=0.1)
+            random_sample_config=SamplingStrategy.RandomSampleConfig(sample_rate=0.1)
         )
         alert_config = ModelMonitoringAlertConfig(
             enable_logging=True,
@@ -263,7 +263,7 @@ def model_monitoring_op(
 
         client = JobServiceClient(client_options={"api_endpoint": f"{location}-aiplatform.googleapis.com"})
         client.create_model_deployment_monitoring_job(
-            parent=f"projects/{project_id}/locations/{location}", 
+            parent=f"projects/{project_id}/locations/{location}",
             model_deployment_monitoring_job=model_deployment_monitoring_job
         )
 
