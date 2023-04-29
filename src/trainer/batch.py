@@ -55,7 +55,7 @@ def batch_prediction_op(
         model_monitoring_config = ModelMonitoringConfig(
             alert_config=ModelMonitoringAlertConfig(
                 enable_logging=True,
-                notification_chanels=notification_channels,
+                notification_channels=notification_channels,
                 email_alert_config=ModelMonitoringAlertConfig.EmailAlertConfig(
                     user_emails=[]
                 )
