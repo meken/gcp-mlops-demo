@@ -206,7 +206,7 @@ def model_monitoring_op(
     from google.cloud.aiplatform_v1beta1.services.job_service import JobServiceClient
     from google.cloud.aiplatform_v1beta1.types import (
         GcsSource, ModelDeploymentMonitoringJob, ModelDeploymentMonitoringScheduleConfig, ModelMonitoringAlertConfig,
-        ModelMonitoringObjectiveConfig, ModelDeploymentMonitoringObjectiveConfig, SamplingStrategy)
+        ModelMonitoringObjectiveConfig, ModelDeploymentMonitoringObjectiveConfig, SamplingStrategy, job_state)
     aiplatform.init(project=project_id, location=location)
 
     endpoints = aiplatform.Endpoint.list(filter=f"display_name={endpoint_name}")
@@ -215,6 +215,9 @@ def model_monitoring_op(
         if (monitoring_job_resource_name):
             # can't update an existing monitoring job if it's pending so deleting it first
             job = aiplatform.ModelDeploymentMonitoringJob(monitoring_job_resource_name)
+            if (job.state.value == job_state.JobState.JOB_STATE_RUNNING.value):
+                # if job is running it needs to be paused first
+                job.pause()
             job.delete()
 
         monitoring_client = monitoring_v3.NotificationChannelServiceClient()
@@ -228,7 +231,7 @@ def model_monitoring_op(
 
         skew_config = ModelMonitoringObjectiveConfig.TrainingPredictionSkewDetectionConfig()
         objective_config = ModelDeploymentMonitoringObjectiveConfig(
-            deployed_model_id=endpoints[0].gca_resource.deployed_models[0].id,
+            deployed_model_id=endpoints[0].gca_resource.deployed_models[0].id,  # last deployed one is the first in list
             objective_config=ModelMonitoringObjectiveConfig(
                 training_dataset=ModelMonitoringObjectiveConfig.TrainingDataset(
                     gcs_source=GcsSource(uris=[f"{dataset.path}/test/000000000000.csv".replace("/gcs/", "gs://", 1)]),
