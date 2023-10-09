@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import math
 import os
 
 import joblib
@@ -43,6 +44,14 @@ def create_datasets(training_data_dir: str, validation_data_dir: str) -> tuple[p
     else:
         return train_test_split(train_dataset, test_size=.25, random_state=42)
 
+def strip_infinity(thresholds: list[float]):
+    if math.inf in thresholds:
+        updated = thresholds[:]
+        updated.remove(math.inf)
+        updated.insert(0, max(updated)+1)
+        return updated
+    else:
+        return thresholds    
 
 def log_metrics(y_pred: pd.Series, y_true: pd.Series, output_dir: str):
     curve = roc_curve(y_score=y_pred, y_true=y_true)
@@ -57,7 +66,7 @@ def log_metrics(y_pred: pd.Series, y_true: pd.Series, output_dir: str):
         metrics["roc_curve"] = {}
         metrics["roc_curve"]["fpr"] = curve[0].tolist()
         metrics["roc_curve"]["tpr"] = curve[1].tolist()
-        metrics["roc_curve"]["thresholds"] = curve[2].tolist()
+        metrics["roc_curve"]["thresholds"] = strip_infinity(curve[2].tolist())
         json.dump(metrics, f, indent=2)
 
 
