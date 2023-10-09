@@ -21,14 +21,14 @@ steps:
       - '.'
 
   - id: 'Create a virtual env'
-    name: python:3.7-slim
+    name: python:3.10-slim
     entrypoint: bash
     args: 
       - -c 
       - python -m venv .venv
 
   - id: 'Install the dependencies'
-    name: python:3.7-slim
+    name: python:3.10-slim
     entrypoint: bash
     args: 
       - -c
@@ -36,7 +36,7 @@ steps:
 
 
   - id: 'Generate the pipeline definition'
-    name: python:3.7-slim
+    name: python:3.10-slim
     entrypoint: bash
     args: 
       - -c
@@ -71,7 +71,7 @@ steps:
       EOF
 
   - id: 'Run the pipeline'
-    name: python:3.7-slim
+    name: python:3.10-slim
     entrypoint: bash
     args: 
       - -c

@@ -6,7 +6,7 @@ steps:
           'https://source.developers.google.com/p/$PROJECT_ID/r/$REPO_NAME']
 
   - id: 'Create a virtual env'
-    name: python:3.7-slim
+    name: python:3.10-slim
     dir: $REPO_NAME
     entrypoint: bash
     args: 
@@ -14,7 +14,7 @@ steps:
       - python -m venv .venv
 
   - id: 'Install the dependencies'
-    name: python:3.7-slim
+    name: python:3.10-slim
     dir: $REPO_NAME
     entrypoint: bash
     args: 
@@ -22,7 +22,7 @@ steps:
       - source .venv/bin/activate && pip install -c constraints.txt .[dev]
 
   - id: 'Lint the source code'
-    name: python:3.7-slim
+    name: python:3.10-slim
     dir: $REPO_NAME
     entrypoint: bash
     args: 
@@ -30,7 +30,7 @@ steps:
       - source .venv/bin/activate && flake8
 
   - id: 'Run the unittests and measure coverage'
-    name: python:3.7-slim
+    name: python:3.10-slim
     dir: $REPO_NAME
     entrypoint: bash
     args: 
@@ -38,7 +38,7 @@ steps:
       - source .venv/bin/activate && coverage run --source=src -m pytest -v tests/unittests
 
   - id: 'Report the coverage'
-    name: python:3.7-slim
+    name: python:3.10-slim
     dir: $REPO_NAME
     entrypoint: bash
     args: 
@@ -46,7 +46,7 @@ steps:
       - source .venv/bin/activate && coverage report
 
   - id: 'Create the Python package'
-    name: python:3.7-slim
+    name: python:3.10-slim
     dir: $REPO_NAME
     entrypoint: bash
     args: 
