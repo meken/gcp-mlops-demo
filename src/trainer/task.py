@@ -44,14 +44,17 @@ def create_datasets(training_data_dir: str, validation_data_dir: str) -> tuple[p
     else:
         return train_test_split(train_dataset, test_size=.25, random_state=42)
 
+
 def strip_infinity(thresholds: list[float]):
+    """JSON can't handle infinity, replacing that to work around that limitation"""
     if math.inf in thresholds:
         updated = thresholds[:]
         updated.remove(math.inf)
         updated.insert(0, max(updated)+1)
         return updated
     else:
-        return thresholds    
+        return thresholds
+
 
 def log_metrics(y_pred: pd.Series, y_true: pd.Series, output_dir: str):
     curve = roc_curve(y_score=y_pred, y_true=y_true)
