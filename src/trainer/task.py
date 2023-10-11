@@ -45,13 +45,14 @@ def create_datasets(training_data_dir: str, validation_data_dir: str) -> tuple[p
         return train_test_split(train_dataset, test_size=.25, random_state=42)
 
 
+# Newer versions of scikit-learn generate `Infinity` (instead of `max(y_score) + 1`) as the first threshold when the
+# `roc_curve` is calculated. Since we're storing the thresholds in JSON format, and JSON can't handle `Infinity` we're
+# reverting back to the old behaviour by replacing `Infinity with `max(y_score) + 1`.
 def strip_infinity(thresholds: list[float]):
     """JSON can't handle infinity, replacing that to work around that limitation"""
     if math.inf in thresholds:
-        updated = thresholds[:]
-        updated.remove(math.inf)
-        updated.insert(0, max(updated)+1)
-        return updated
+        replacement = max([t for t in thresholds if t != math.inf]) + 1
+        return [replacement if t == math.inf else t for t in thresholds]
     else:
         return thresholds
 
