@@ -51,7 +51,7 @@ steps:
     entrypoint: bash
     args: 
       - -c
-      - python setup.py sdist --formats=gztar
+      - source .venv/bin/activate && python -m build --sdist
 
   - id: 'Copy the package to Cloud Store'
     name: gcr.io/cloud-builders/gsutil

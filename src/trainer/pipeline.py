@@ -1,10 +1,12 @@
 import argparse
 
-from kfp.v2 import compiler
-from kfp.v2 import dsl
+from kfp import compiler
+from kfp import dsl
+
+BASE_IMAGE = "python:3.10"
 
 
-@dsl.component(packages_to_install=["google-cloud-bigquery"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-bigquery"])
 def data_extract_op(project_id: str, dataset: dsl.Output[dsl.Dataset]):
     import os
 
@@ -48,17 +50,17 @@ def data_extract_op(project_id: str, dataset: dsl.Output[dsl.Dataset]):
         job.result()
 
 
-@dsl.component()
+@dsl.component(base_image=BASE_IMAGE)
 def data_validation_op(dataset: dsl.Input[dsl.Dataset]) -> str:
     return "valid"
 
 
-@dsl.component()
+@dsl.component(base_image=BASE_IMAGE)
 def data_preparation_op():
     pass
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-aiplatform"])
 def model_training_op(
         dataset: dsl.Input[dsl.Dataset],
         python_pkg: str,
@@ -74,7 +76,7 @@ def model_training_op(
         display_name="taxi-tips-custom-job",
         python_package_gcs_uri=pkg_with_uri if pkg_with_uri.endswith(".tar.gz") else f"{pkg_with_uri}.tar.gz",
         python_module_name="trainer.task",
-        container_uri="europe-docker.pkg.dev/vertex-ai/training/scikit-learn-cpu.0-23:latest")
+        container_uri="us-docker.pkg.dev/vertex-ai/training/sklearn-cpu.1-0:latest")
 
     job.run(
         replica_count=1,
@@ -89,7 +91,7 @@ def model_training_op(
     )
 
 
-@dsl.component()
+@dsl.component(base_image=BASE_IMAGE)
 def model_evaluation_op(model: dsl.Input[dsl.Model], metrics: dsl.Output[dsl.ClassificationMetrics]):
     import json
 
@@ -105,7 +107,7 @@ def model_evaluation_op(model: dsl.Input[dsl.Model], metrics: dsl.Output[dsl.Cla
     metrics.metadata["auc"] = model_metrics["auc"]
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-aiplatform"])
 def model_validation_op(
         model_name: str,
         metrics: dsl.Input[dsl.ClassificationMetrics],
@@ -122,7 +124,7 @@ def model_validation_op(
         return "valid" if metrics.metadata["auc"] > latest_model_evaluation.metrics["auRoc"] else "invalid"
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-aiplatform"])
 def model_upload_op(
         model: dsl.Input[dsl.Model],
         serving_container_image_uri: str,
@@ -145,7 +147,7 @@ def model_upload_op(
     return registered_model.versioned_resource_name
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-aiplatform"])
 def model_evaluation_upload_op(
         metrics: dsl.Input[dsl.ClassificationMetrics],
         model_resource_name: str,
@@ -172,7 +174,7 @@ def model_evaluation_upload_op(
     client.import_model_evaluation(parent=model_resource_name, model_evaluation=model_evaluation)
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-aiplatform"])
 def model_deployment_op(model_name: str, endpoint_name: str, project_id: str, location: str):
     from google.cloud import aiplatform
 
@@ -193,7 +195,7 @@ def model_deployment_op(model_name: str, endpoint_name: str, project_id: str, lo
             max_replica_count=4)
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform", "google-cloud-monitoring"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-aiplatform", "google-cloud-monitoring"])
 def model_monitoring_op(
         dataset: dsl.Input[dsl.Dataset],
         monitoring_job_name: str,
@@ -306,11 +308,11 @@ def training_pipeline(
         location=location
     ).set_display_name("validate-model")
 
-    with dsl.Condition(model_validation_task.output == "valid", name="check-performance"):
+    with dsl.If(model_validation_task.output == "valid", name="check-performance"):
         model_upload_task = model_upload_op(
             model=training_task.outputs["model"],
             model_name=model_name,
-            serving_container_image_uri="europe-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.0-23:latest",
+            serving_container_image_uri="us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-0:latest",
             project_id=project_id,
             location=location
         ).set_display_name("register-model")
@@ -322,7 +324,7 @@ def training_pipeline(
             location=location
         ).set_display_name("register-model-evaluation")
 
-        with dsl.Condition(endpoint != "[none]", name="check-if-endpoint-set"):
+        with dsl.If(endpoint != "[none]", name="check-if-endpoint-set"):
             model_deployment_task = model_deployment_op(
                 model_name=model_name,
                 endpoint_name=endpoint,
@@ -331,7 +333,7 @@ def training_pipeline(
             ).set_display_name("deploy-model")
             model_deployment_task.after(model_evaluation_upload_task)
 
-            with dsl.Condition(monitoring_job != "[none]", name="check-if-monitoring-enabled"):
+            with dsl.If(monitoring_job != "[none]", name="check-if-monitoring-enabled"):
                 model_monitoring_task = model_monitoring_op(
                     dataset=data_extraction_task.outputs["dataset"],
                     endpoint_name=endpoint,
