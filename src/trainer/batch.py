@@ -1,16 +1,18 @@
 import argparse
 
-from kfp.v2 import compiler
-from kfp.v2 import dsl
+from kfp import compiler
+from kfp import dsl
+
+BASE_IMAGE = "python:3.10"
 
 
-@dsl.component()
+@dsl.component(base_image=BASE_IMAGE)
 def data_preparation_op(src_table: str, prepared_table: dsl.Output[dsl.Artifact]):
     # this would be the place to do any data preparation, we're just passing the input as output
     prepared_table.uri = src_table if src_table.startswith("bq://") else f"bq://{src_table}"
 
 
-@dsl.component(packages_to_install=["google-cloud-aiplatform", "google-cloud-monitoring"])
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-aiplatform", "google-cloud-monitoring"])
 def batch_prediction_op(
         model_name: str, input_table: dsl.Input[dsl.Artifact], monitoring_sample_uri: str,
         project_id: str, location: str, output_table: dsl.Output[dsl.Artifact]) -> str:
@@ -111,7 +113,8 @@ def batch_pipeline(
     data_preparation_task = data_preparation_op(src_table=source_table_uri).set_display_name("data-preparation")
 
     batch_prediction_task = batch_prediction_op(
-        model_name, data_preparation_task.output, training_sample_uri, project_id, location)
+        model_name=model_name, input_table=data_preparation_task.output,
+        monitoring_sample_uri=training_sample_uri, project_id=project_id, location=location)
     batch_prediction_task.set_display_name("batch-prediction")
 
 
