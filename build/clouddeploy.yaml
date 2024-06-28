@@ -76,3 +76,5 @@ steps:
     args: 
       - -c
       - source .venv/bin/activate && python submit.py
+options:
+  logging: CLOUD_LOGGING_ONLY
