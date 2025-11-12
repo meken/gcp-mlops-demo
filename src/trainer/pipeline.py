@@ -276,6 +276,19 @@ def model_monitoring_op(
 @dsl.pipeline(name="taxi-tips-training")
 def training_pipeline(
         project_id: str, location: str, python_pkg: str, endpoint: str = "[none]", monitoring_job: str = "[none]"):
+    """This pipeline orchestrates data extraction, data validation, data preparation, model training, 
+    model validation, model registry, model evaluation and optionally model deployment and monitoring tasks 
+    in an MLOps setup.
+
+    Args:
+        project_id: Google Cloud project ID to be used
+        location: region of the storage bucket where the Python package for training is stored
+        python_pkg: the URI of the Python package for training, e.g. gs://.../mypackage-1.0.tar.gz
+        endpoint: (optional) name of the Online Endpoint when deployed, 
+            setting this to [none] turns off deployment
+        monitoring_job: (optional) name of the Model Monitoring job when turned on, 
+            setting this to [none] turns off monitoring
+    """
     model_name = "taxi-tips"
 
     data_extraction_task = data_extract_op(
