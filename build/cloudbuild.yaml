@@ -54,11 +54,12 @@ steps:
       - source .venv/bin/activate && python -m build --sdist
 
   - id: 'Copy the package to Cloud Store'
-    name: gcr.io/cloud-builders/gsutil
+    name: gcr.io/cloud-builders/gcloud
     dir: $REPO_NAME
     env:
       - 'PROJECT_ID=$PROJECT_ID'
     args:
+      - storage
       - cp 
       - dist/*.tar.gz
       - gs://$PROJECT_ID/code/

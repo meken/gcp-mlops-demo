@@ -18,10 +18,11 @@ steps:
       fi
 
   - id: 'Download the package from Cloud Storage'
-    name: gcr.io/cloud-builders/gsutil
+    name: gcr.io/cloud-builders/gcloud
     env:
       - 'PROJECT_ID=$PROJECT_ID'
     args:
+      - storage
       - cp 
       - gs://$PROJECT_ID/code/$_PYTHON_PKG.tar.gz
       - '.'
