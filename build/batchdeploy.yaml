@@ -7,13 +7,15 @@ steps:
       - 'SOURCE_TABLE_URI=$_SOURCE_TABLE_URI'
       - 'TRAINING_SAMPLE_URI="$_TRAINING_SAMPLE_URI'
       - 'LOCATION=$_LOCATION'
+      - 'KFP_SERVICE_ACCOUNT=$_KFP_SERVICE_ACCOUNT'
     script: |
       if [[ -z "$PYTHON_PKG" ]] ||
          [[ -z "$MODEL_NAME" ]] ||
          [[ -z "$SOURCE_TABLE_URI" ]] ||
          [[ -z "$TRAINING_SAMPLE_URI" ]] ||
-         [[ -z "$LOCATION" ]]; then
-        echo "Set PYTHON_PKG, MODEL_NAME, SOURCE_TABLE_URI, TRAINING_SAMPLE_URI and LOCATION please"
+         [[ -z "$LOCATION" ]] ||
+         [[ -z "$KFP_SERVICE_ACCOUNT" ]]; then
+        echo "Set PYTHON_PKG, MODEL_NAME, SOURCE_TABLE_URI, TRAINING_SAMPLE_URI, LOCATION and KFP_SERVICE_ACCOUNT please"
         exit 1
       fi
 
@@ -58,6 +60,7 @@ steps:
       - 'SOURCE_TABLE_URI=$_SOURCE_TABLE_URI'
       - 'TRAINING_SAMPLE_URI=$_TRAINING_SAMPLE_URI'
       - 'LOCATION=$_LOCATION'
+      - 'KFP_SERVICE_ACCOUNT=$_KFP_SERVICE_ACCOUNT'
     script: |
       cat <<EOF > submit.py
       from google.cloud import aiplatform
@@ -76,7 +79,7 @@ steps:
           },
           enable_caching=False
       )
-      job.submit()
+      job.submit(service_account="$KFP_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com")
       EOF
 
   - id: 'Run the pipeline'

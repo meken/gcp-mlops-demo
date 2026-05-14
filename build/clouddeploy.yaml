@@ -5,9 +5,13 @@ steps:
       - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
       - 'ENDPOINT=$_ENDPOINT'
       - 'LOCATION=$_LOCATION'
+      - 'KFP_SERVICE_ACCOUNT=$_KFP_SERVICE_ACCOUNT'
     script: |
-      if [[ -z "$PYTHON_PKG" ]] || [[ -z "$ENDPOINT" ]] || [[ -z "$LOCATION" ]]; then
-        echo "Set PYTHON_PKG, ENDPOINT and LOCATION please"
+      if [[ -z "$PYTHON_PKG" ]] || 
+         [[ -z "$ENDPOINT" ]] || 
+         [[ -z "$LOCATION" ]] ||
+         [[ -z "$KFP_SERVICE_ACCOUNT" ]]; then
+        echo "Set PYTHON_PKG, ENDPOINT, LOCATION and KFP_SERVICE_ACCOUNT please"
         exit 1
       fi
 
@@ -50,6 +54,7 @@ steps:
       - 'PYTHON_PKG=$_PYTHON_PKG.tar.gz'
       - 'ENDPOINT=$_ENDPOINT'
       - 'LOCATION=$_LOCATION'
+      - 'KFP_SERVICE_ACCOUNT=$_KFP_SERVICE_ACCOUNT'
     script: |
       cat <<EOF > submit.py
       from google.cloud import aiplatform
@@ -68,7 +73,7 @@ steps:
           },
           enable_caching=False
       )
-      job.submit()
+      job.submit(service_account="$KFP_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com")
       EOF
 
   - id: 'Run the pipeline'

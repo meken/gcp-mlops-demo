@@ -1,10 +1,10 @@
 # gcp-mlops-demo
 
-This is a sample project that illustrates how to use [Vertex AI](https://cloud.google.com/vertex-ai) on GCP for building and running [MLOps workflows](https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning#mlops_level_2_cicd_pipeline_automation).
+This is a sample project that illustrates how to use [Gemini Enterprise Agent Platform](https://docs.cloud.google.com/gemini-enterprise-agent-platform/machine-learning/start/introduction-mlops)(formerly known as Vertex AI) on GCP for building and running [MLOps workflows](https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning#mlops_level_2_cicd_pipeline_automation).
 
-## Steps to run the code on Vertex AI
+## Steps to run the code on Agent Platform
 
-There's a number of different ways of running this code base on Vertex AI. This repository contains [Cloud Build](https://cloud.google.com/build) pipelines for automating the package generation and continous training of models, as well as a Vertex AI pipeline (based on [Kubeflow v2](https://www.kubeflow.org/docs/components/pipelines/v2/introduction/)) for training. However, it's also possible to run these steps individually. The following commands will illustrate how to run just the training on Vertex AI.
+There's a number of different ways of running this code base on Agent Platform. This repository contains [Cloud Build](https://cloud.google.com/build) pipelines for automating the package generation and continous training of models, as well as an Agent Platform Pipeline (based on [Kubeflow v2](https://www.kubeflow.org/docs/components/pipelines/v2/introduction/)) for training. However, it's also possible to run these steps individually. The following commands will illustrate how to run just the training on Agent Platform.
 
 First you need to create a source distribution for this repository. Before we build the source distribution we need to make sure that the `build` package is available. You could create a virtual environment and install it there using the following commands
 
@@ -23,7 +23,7 @@ python3 -m build --sdist .
 Once the distribution is created, upload it to GCS
 
 ```shell
-BUCKET=...  # set to a bucket that's accessible by you and Vertex AI
+BUCKET=...  # set to a bucket that's accessible by you and Agent Platform
 gsutil cp dist/*.tar.gz gs://$BUCKET/code/
 ```
 

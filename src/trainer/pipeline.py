@@ -325,7 +325,7 @@ def training_pipeline(
         model_upload_task = model_upload_op(
             model=training_task.outputs["model"],
             model_name=model_name,
-            serving_container_image_uri="us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-2:latest",
+            serving_container_image_uri="us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-6:latest",
             project_id=project_id,
             location=location
         ).set_display_name("register-model")

@@ -5,36 +5,37 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gcp-mlops-demo"
 version = "0.8.0.dev0"
-description = "An example project for doing MLOps on Vertex AI"
+description = "An example project for doing MLOps on GCP using Gemini Enterprise Agent Platform"
 authors = [{ name = "Murat Eken", email = "meken@google.com" }]
 readme = "README.md"
 urls = { repository = "https://github.com/meken/gcp-mlops-demo" }
 license-files = ["LICENSE"]
 
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 dependencies = [
-    "scikit-learn",
-    "pandas"
+    "scikit-learn==1.6.0",
+    "pandas==2.3.3"
 ]
 
 [project.optional-dependencies]
 gcp = [
-    "kfp",
-    "google-cloud-aiplatform",
-    "google-cloud-pipeline-components",
+    "kfp==2.16.1",
+    "google-cloud-aiplatform==1.152.0",
+    "google-cloud-bigquery-storage==2.38.0",
+    "google-cloud-pipeline-components==2.22.0",
 ]
 interactive = [
-    "matplotlib",
-    "seaborn",
-    "pandas-gbq",
-    "gcsfs",
-    "pyarrow"
+    "matplotlib==3.10.9",
+    "seaborn==0.13.2",
+    "pandas-gbq==0.35.0",
+    "gcsfs==2026.5.0",
+    "pyarrow==24.0.0"
 ]
 dev = [
-    "build",
-    "flake8-pyproject",
-    "pytest",
-    "coverage"
+    "build==1.5.0",
+    "flake8-pyproject==1.2.4",
+    "pytest==9.0.3",
+    "coverage==7.14.0"
 ]
 
 [tool.flake8]
